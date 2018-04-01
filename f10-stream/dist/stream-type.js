@@ -1,0 +1,1 @@
+//# sourceMappingURL=stream-type.js.map
