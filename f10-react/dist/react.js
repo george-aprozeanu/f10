@@ -47,27 +47,29 @@ function lifecycleAttach(componentPrototype, attachment) {
         attachment.unmount(this);
     };
 }
+var F10 = Symbol.for('Symbol.F10');
 function stateMutation(componentPrototype, iterableFn) {
-    var mounted = true;
     function execute(component) {
         return __awaiter(this, void 0, void 0, function () {
-            var iterator, result;
+            var state, iterator, result;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
+                        state = { mounted: true };
+                        component[F10] = state;
                         iterator = iterableFn.apply(component)[Symbol.asyncIterator]();
                         result = undefined;
                         _a.label = 1;
                     case 1:
-                        if (!mounted) return [3 /*break*/, 3];
+                        if (!state.mounted) return [3 /*break*/, 3];
                         return [4 /*yield*/, iterator.next()];
                     case 2:
                         result = _a.sent();
-                        if (mounted && result && !result.done)
+                        if (state.mounted && result && !result.done)
                             component.setState(result.value);
                         _a.label = 3;
                     case 3:
-                        if (mounted && result && !result.done) return [3 /*break*/, 1];
+                        if (state.mounted && result && !result.done) return [3 /*break*/, 1];
                         _a.label = 4;
                     case 4: return [2 /*return*/];
                 }
@@ -78,8 +80,8 @@ function stateMutation(componentPrototype, iterableFn) {
         mount: function (component) {
             execute(component).catch(console.error);
         },
-        unmount: function () {
-            mounted = false;
+        unmount: function (component) {
+            component[F10].mounted = false;
         }
     });
 }

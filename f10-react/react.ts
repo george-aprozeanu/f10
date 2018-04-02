@@ -19,26 +19,29 @@ function lifecycleAttach(componentPrototype: Component<any, any>, attachment: Li
     };
 }
 
+const F10 = Symbol.for('Symbol.F10');
+
 function stateMutation<T, S extends T>(componentPrototype: Component<any, S>, iterableFn: () => AsyncIterable<T>) {
-    let mounted = true;
 
     async function execute(component: Component) {
+        const state = {mounted: true};
+        (component as any)[F10] = state;
         const iterator = iterableFn.apply(component)[Symbol.asyncIterator]();
         let result: IteratorResult<any> | undefined = undefined;
         do {
-            if (mounted) {
+            if (state.mounted) {
                 result = await iterator.next();
-                if (mounted && result && !result.done) component.setState(result.value);
+                if (state.mounted && result && !result.done) component.setState(result.value);
             }
-        } while (mounted && result && !result.done);
+        } while (state.mounted && result && !result.done);
     }
 
     lifecycleAttach(componentPrototype, {
         mount(component: Component) {
             execute(component).catch(console.error);
         },
-        unmount() {
-            mounted = false;
+        unmount(component: Component) {
+            (component as any)[F10].mounted = false;
         }
     });
 }
