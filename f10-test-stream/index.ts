@@ -4,7 +4,7 @@ import {suite, test, timeout} from "mocha-typescript";
 import {default as assert, fail} from "assert";
 
 const someValues = [] as number[];
-const someValuesLength = 0x1000;
+const someValuesLength = 0x100;
 for (let i = 0; i < someValuesLength; i++) someValues.push(i);
 
 function delay<T>(fn: Promise<T> | T | (() => T | Promise<T>)) {
