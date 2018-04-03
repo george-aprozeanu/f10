@@ -1,2 +1,7 @@
 node_modules
 .idea
+dist
+f10-node
+f10-template-compiler
+*.iml
+yarn-error.log

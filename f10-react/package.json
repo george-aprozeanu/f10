@@ -1,17 +1,12 @@
 {
   "name": "f10-react",
   "version": "1.1.1",
-  "main": "dist/index.js",
   "license": "MIT",
   "files": [
     "dist"
   ],
-  "dependencies": {
-    "f10-stream": "~1"
-  },
   "devDependencies": {
     "@types/react": "^16.0.40",
-    "react": "^16.2.0",
     "typescript": "^2.7.2"
   }
 }

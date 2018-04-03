@@ -1,7 +1,7 @@
-import { stream, writeStream } from "../f10-stream/stream";
+import {stream, writeStream} from "../f10-stream/src";
 
-import { suite, test, timeout } from "mocha-typescript";
-import { default as assert, fail } from "assert";
+import {suite, test, timeout} from "mocha-typescript";
+import {default as assert, fail} from "assert";
 
 const someValues = [] as number[];
 const someValuesLength = 0x1000;
@@ -187,7 +187,7 @@ export class WriteStreams {
     // noinspection FunctionWithMultipleLoopsJS
     @test()
     async bufferSize0Sync() {
-        const values = writeStream<number>(true,0);
+        const values = writeStream<number>(true, 0);
         for (let value of someValues) await values.write(value);
         await values.done();
         for await (let value of values) fail(`value: ${value}`);
@@ -331,7 +331,7 @@ export class WriteStreams {
 
     @test
     async bufferSize0SyncAsyncFirstReceive() {
-        const values = writeStream<number>(true,0);
+        const values = writeStream<number>(true, 0);
         await Promise.all([delay(async () => {
             const actual = [];
             for await (let value of values) actual.push(value);
@@ -345,7 +345,7 @@ export class WriteStreams {
 
     @test()
     async bufferSize0AsyncAsyncFirstReceive() {
-        const values = writeStream<number>(true,0);
+        const values = writeStream<number>(true, 0);
         await Promise.all([delay(async () => {
             const actual = [];
             for await (let value of values) actual.push(value);
@@ -375,7 +375,7 @@ export class WriteStreams {
 
     @test()
     async bufferSize1AsyncAsyncFirstReceive() {
-        const values = writeStream<number>(true,1, -1);
+        const values = writeStream<number>(true, 1, -1);
         await Promise.all([delay(async () => {
             const actual = [];
             for await (let value of values) actual.push(value);
@@ -406,7 +406,7 @@ export class WriteStreams {
 
     @test()
     async bufferSize2AsyncAsyncFirstReceive() {
-        const values = writeStream<number>(true,2, -1);
+        const values = writeStream<number>(true, 2, -1);
         await Promise.all([delay(async () => {
             const actual = [];
             for await (let value of values) actual.push(value);
@@ -439,7 +439,7 @@ export class WriteStreams {
 
     @test()
     async bufferSize3AsyncAsyncFirstReceive() {
-        const values = writeStream<number>(true,3, -1);
+        const values = writeStream<number>(true, 3, -1);
         await Promise.all([delay(async () => {
             const actual = [];
             for await (let value of values) actual.push(value);
@@ -458,7 +458,7 @@ export class WriteStreams {
     @test
     async simpleSyncStream1Repeat() {
         const replayBound = 1;
-        const values = writeStream<number>(true,-1, replayBound);
+        const values = writeStream<number>(true, -1, replayBound);
         for (let value of someValues) await values.write(value);
         await values.done();
         const actual = [];
@@ -470,7 +470,7 @@ export class WriteStreams {
     @test
     async simpleSyncStream2Repeat() {
         const replayBound = 2;
-        const values = writeStream<number>(true,-1, replayBound);
+        const values = writeStream<number>(true, -1, replayBound);
         for (let value of someValues) await values.write(value);
         await values.done();
         const actual = [];
@@ -741,7 +741,7 @@ export class SharedWriteStreams {
     @test
     async simpleAsyncShare3AsyncWriteTween2Size2() {
         const bound = 2;
-        const values = writeStream<number>(true,2, -1);
+        const values = writeStream<number>(true, 2, -1);
         await Promise.all([
             (async () => {
                 const actual = [];
@@ -876,7 +876,7 @@ export class SharedStreams {
     @test
     async simpleShared() {
         const loop = {
-            async * main() {
+            async* main() {
                 for await (let value of someValues) {
                     yield (value * 10);
                 }

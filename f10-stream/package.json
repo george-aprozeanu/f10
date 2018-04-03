@@ -1,11 +1,4 @@
 {
-  "_id": "f10-stream@1.0.2",
-  "_inBundle": true,
-  "_location": "/f10-react/f10-stream",
-  "_phantomChildren": {},
-  "_requiredBy": [
-    "/f10-react"
-  ],
   "devDependencies": {
     "typescript": "^2.7.2"
   },
@@ -13,7 +6,6 @@
     "dist"
   ],
   "license": "MIT",
-  "main": "dist/index.js",
   "name": "f10-stream",
   "version": "1.0.4"
 }
