@@ -3,9 +3,11 @@
     "typescript": "^2.7.2"
   },
   "files": [
-    "dist"
+    "dist",
+    "index.js",
+    "index.d.ts"
   ],
   "license": "MIT",
   "name": "f10-stream",
-  "version": "1.1.0"
+  "version": "1.1.1"
 }
