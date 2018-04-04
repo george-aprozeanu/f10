@@ -1,12 +1,24 @@
-import {DefferWrap, Reject, Resolve, SeqStream} from "./seq-stream";
+import {DefferWrap, Reject, Resolve, SeqConfig, SeqStream, Value} from "./seq-stream";
 
-export class WriteStream<T> extends SeqStream<T, DefferWrap<T>> {
+export interface Sink<T> {
+    write(t: T): Promise<void>;
+    done(): Promise<void>;
+}
+
+export interface WriteConfig extends SeqConfig {
+    distinct?: boolean;
+}
+
+export const Distinct = {distinct: true};
+
+export class WriteStream<T> extends SeqStream<T, DefferWrap<T>> implements Sink<T> {
+
 
     private prevSeq = -1;
     private prevValue?: T;
 
-    constructor(private distinct: boolean = true, size: number = -1, replay: number = 1) {
-        super(size, replay);
+    constructor(protected config: WriteConfig) {
+        super(config);
     }
 
     done(returnValue?: T) {
@@ -45,7 +57,7 @@ export class WriteStream<T> extends SeqStream<T, DefferWrap<T>> {
 
     private async offer(result: IteratorResult<T>) {
         if (this.seq === this.prevSeq && this.seq !== this.last) throw new Error("write:!await");
-        if (this.distinct) {
+        if (this.config.distinct) {
             if (this.prevValue !== undefined && !result.done && result.value === this.prevValue) return;
         }
         this.prevValue = result.value;
@@ -60,6 +72,10 @@ export class WriteStream<T> extends SeqStream<T, DefferWrap<T>> {
     }
 }
 
-export function writeStream<T>(distinct: boolean = true, size: number = -1, replay: number = 1) {
-    return new WriteStream<T>(distinct, size, replay);
+export function writeStream<T>(config?: WriteConfig) {
+    return new WriteStream<T>({...config});
+}
+
+export function valueStream(config?: WriteConfig) {
+    return new WriteStream({...Distinct, ...Value, ...config});
 }

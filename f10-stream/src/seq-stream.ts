@@ -17,6 +17,30 @@ export class Seq<Out, W extends Wrap<Out>> {
     }
 }
 
+/**
+ * Sets parameters for how a SeqStream should function with regards to imperfect reads.
+ */
+export interface SeqConfig {
+    /**
+     * How many values to keep in the buffer.
+     * default  : keep all values;
+     *    0     : keep no values; reading from the stream always blocks;
+     *  >=1     : keep that many values; reading from the stream will start with that many values replayed, but no more
+     *              than set by the _replay_ param.
+     */
+    size?: number;
+    /**
+     * How many values to replay upon starting a new read.
+     *   default : Replay all values. The backlog will be limited only by the buffer size;
+     *    0      : Do not replay. Only new values will be delivered. Insures the read will surely block on the first
+     *           read.
+     *  > 0      : Replay that many values. Entering 1 will ensure the first delivery is the last emitted value.
+     */
+    replay?: number;
+}
+
+export const Value = {replay: 1};
+
 export abstract class SeqStream<T, W extends Wrap<T>> extends Stream<T> {
 
     protected last?: number;
@@ -27,25 +51,12 @@ export abstract class SeqStream<T, W extends Wrap<T>> extends Stream<T> {
 
     protected abstract demand(): W;
 
-
-    /**
-     * @param {number} size How many values to keep in the buffer.
-     *   -1 : keep all values;
-     *    0 : keep no values; reading from the stream always blocks;
-     *  >=1 : keep that many values; reading from the stream will start with that many values replayed, but no more
-     *        than set by the _replay_ param.
-     *
-     * @param {number} replay How many values to replay upon starting a new read.
-     *   -1 : Replay all values. The backlog will be limited only by the buffer size;
-     *    0 : Do not replay. Only new values will be delivered. Insures the read will surely block on the first read.
-     *  > 0 : Replay that many values. Entering 1 will ensure the first delivery is the last emitted value.
-     */
-    constructor(private size: number = -1, private replay: number = -1) {
+    constructor(protected config: SeqConfig) {
         super();
     }
 
     [Symbol.asyncIterator]() {
-        let seq = this.replay > -1 ? this.seq - this.replay : 0;
+        let seq = this.config.replay !== undefined ? this.seq - this.config.replay : 0;
         return {
             next: () => {
                 if (seq > this.seq) throw new Error("read:seq!>");
@@ -66,8 +77,8 @@ export abstract class SeqStream<T, W extends Wrap<T>> extends Stream<T> {
     }
 
     private trim() {
-        const maxSize = this.size + 1;
-        if (maxSize > 0 && this.buffer.length > maxSize) {
+        const maxSize = this.config.size !== undefined ? (this.config.size + 1) : undefined;
+        if (maxSize !== undefined && this.buffer.length > maxSize) {
             const cut = this.buffer.length - maxSize;
             this.buffer.splice(0, cut);
             this.first += cut;
@@ -76,7 +87,7 @@ export abstract class SeqStream<T, W extends Wrap<T>> extends Stream<T> {
 
     private correctSeq(seq: number) {
         if (seq > this.seq + 1) throw new Error("write:seq+>1");
-        const oldestSeq = this.size > -1 ? Math.max(0, this.seq - this.size) : 0;
+        const oldestSeq = this.config.size !== undefined ? Math.max(0, this.seq - this.config.size) : 0;
         seq = Math.max(seq, oldestSeq);
         if (this.last !== undefined) seq = Math.min(seq, this.last);
         return seq;

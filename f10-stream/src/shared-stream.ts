@@ -1,9 +1,9 @@
 import {Stream} from "./stream";
-import {SeqStream, Wrap} from "./seq-stream";
+import {SeqConfig, SeqStream, Wrap} from "./seq-stream";
 
 export class SharedStream<Out> extends SeqStream<Out, Wrap<Out>> {
-    constructor(private stream: AsyncIterator<Out>, size: number = -1, replay: number = 1) {
-        super(size, replay);
+    constructor(private stream: AsyncIterator<Out>, config: SeqConfig) {
+        super(config);
     }
 
     protected demand() {
@@ -11,16 +11,16 @@ export class SharedStream<Out> extends SeqStream<Out, Wrap<Out>> {
     }
 }
 
-export function sharedStream<Out>(stream: AsyncIterator<Out>) {
-    return new SharedStream<Out>(stream);
+export function sharedStream<Out>(stream: AsyncIterator<Out>, config: SeqConfig = {}) {
+    return new SharedStream<Out>(stream, config);
 }
 
 declare module './stream' {
     export interface Stream<Out> {
-        share(size?: number, replay?: number): SharedStream<Out>;
+        share(config?: SeqConfig): SharedStream<Out>;
     }
 }
 
-Stream.prototype.share = function <Out>(size: number = -1, replay: number = 1) {
-    return new SharedStream<Out>(this[Symbol.asyncIterator](), size, replay);
+Stream.prototype.share = function <Out>(config: SeqConfig = {}) {
+    return new SharedStream<Out>(this[Symbol.asyncIterator](), config);
 };
