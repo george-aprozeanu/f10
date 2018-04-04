@@ -76,6 +76,6 @@ export function writeStream<T>(config?: WriteConfig) {
     return new WriteStream<T>({...config});
 }
 
-export function valueStream(config?: WriteConfig) {
-    return new WriteStream({...Distinct, ...Value, ...config});
+export function valueStream<T>(config?: WriteConfig) {
+    return new WriteStream<T>({...Distinct, ...Value, ...config});
 }
