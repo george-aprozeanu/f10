@@ -1,14 +1,18 @@
-import {stream, writeStream, Distinct, demux} from "../f10-stream/src";
+import {stream, writeStream, Distinct, demux, mux, rollup} from "../f10-stream/src";
 
 import {suite, test, timeout} from "mocha-typescript";
 import {default as assert, fail} from "assert";
 
 const someValues = [] as number[];
-const someValuesLength = 0x100;
+const someValuesLength = 0x1000;
 for (let i = 0; i < someValuesLength; i++) someValues.push(i);
 
 function delay<T>(fn: Promise<T> | T | (() => T | Promise<T>)) {
     return Promise.resolve().then(() => typeof fn === "function" ? fn() : fn);
+}
+
+function wait(ms: number) {
+    return new Promise((resolve, reject) => setTimeout(resolve, ms));
 }
 
 @suite
@@ -59,12 +63,26 @@ export class IterableStreams {
         assert.deepEqual(actual, expected);
     }
 
-    @test(timeout(someValues.length * 0x10))
+    @test
     async asyncSimpleStream() {
         const expected = someValues.map(v => v * 10);
 
         const s1 = stream(async function* () {
             for (let value of someValues) yield 10 * await delay(value);
+        });
+        const actual = [];
+        for await (let value of s1) {
+            actual.push(value);
+        }
+        assert.deepEqual(actual, expected);
+    }
+
+    @test
+    async asyncSimpleStreamSyncWrite() {
+        const expected = someValues.map(v => v * 10);
+
+        const s1 = stream(async function* () {
+            for (let value of someValues) yield 10 * value;
         });
         const actual = [];
         for await (let value of s1) {
@@ -133,9 +151,9 @@ export class WriteStreams {
             try {
                 for (let value of someValues) await delay(() => values.write(value));
                 await delay(async () => {
-                    await values.done()
-                    await values.done()
-                    await values.done()
+                    values.done();
+                    values.done();
+                    values.done();
                 });
             } catch (e) {
                 fail(e);
@@ -153,7 +171,7 @@ export class WriteStreams {
     @test
     async simpleSyncStream() {
         const values = writeStream<number>(Distinct);
-        for (let value of someValues) await values.write(value);
+        for (let value of someValues) values.write(value);
         await values.done();
         const actual = [];
         for await (let value of values) actual.push(value);
@@ -162,42 +180,9 @@ export class WriteStreams {
 
     // noinspection FunctionWithMultipleLoopsJS
     @test
-    async bufferSize1Sync() {
-        const size = 1;
-        const values = writeStream<number>({...Distinct, size});
-        for (let value of someValues) await values.write(value);
-        await values.done();
-        const actual = [];
-        for await (let value of values) actual.push(value);
-        assert.deepEqual(actual, someValues.slice(-size));
-    }
-
-    // noinspection FunctionWithMultipleLoopsJS
-    @test
-    async bufferSize2Sync() {
-        const size = 2;
-        const values = writeStream<number>({...Distinct, size});
-        for (let value of someValues) await values.write(value);
-        await values.done();
-        const actual = [];
-        for await (let value of values) actual.push(value);
-        assert.deepEqual(actual, someValues.slice(-size));
-    }
-
-    // noinspection FunctionWithMultipleLoopsJS
-    @test()
-    async bufferSize0Sync() {
-        const values = writeStream<number>({...Distinct, size: 0});
-        for (let value of someValues) await values.write(value);
-        await values.done();
-        for await (let value of values) fail(`value: ${value}`);
-    }
-
-    // noinspection FunctionWithMultipleLoopsJS
-    @test
     async unboundedSyncStream() {
         const values = writeStream<number>({...Distinct});
-        for (let value of someValues) await values.write(value);
+        for (let value of someValues) values.write(value);
         const actual = [];
         let received = 0;
         for await (let value of values) {
@@ -211,89 +196,6 @@ export class WriteStreams {
         }
     }
 
-    // noinspection FunctionWithMultipleLoopsJS
-    @test
-    async unboundedSize1SyncStream() {
-        const size = 1;
-        const values = writeStream<number>({...Distinct, size});
-        for (let value of someValues) await values.write(value);
-        const actual = [];
-        let received = 0;
-        for await (let value of values) {
-            received = received + 1;
-            actual.push(value);
-            if (received == size) {
-                assert.deepEqual(actual, someValues.slice(-size));
-                await values.done();
-            }
-            if (received > someValues.length) {
-                fail("spill");
-            }
-        }
-    }
-
-    // noinspection FunctionWithMultipleLoopsJS
-    @test
-    async unboundedSize2SyncStream() {
-        const size = 2;
-        const values = writeStream<number>({...Distinct, size, replay: size});
-        for (let value of someValues) await values.write(value);
-        const actual = [];
-        let received = 0;
-        for await (let value of values) {
-            received = received + 1;
-            actual.push(value);
-            if (received == size) {
-                assert.deepEqual(actual, someValues.slice(-size));
-                await values.done();
-            }
-            if (received > someValues.length) {
-                fail("spill");
-            }
-        }
-    }
-
-    // noinspection FunctionWithMultipleLoopsJS
-    @test
-    async unboundedSize3SyncStream() {
-        const size = 3;
-        const values = writeStream<number>({...Distinct, size, replay: size});
-        for (let value of someValues) await values.write(value);
-        const actual = [];
-        let received = 0;
-        for await (let value of values) {
-            received = received + 1;
-            actual.push(value);
-            if (received == size) {
-                assert.deepEqual(actual, someValues.slice(-size));
-                await values.done();
-            }
-            if (received > someValues.length) {
-                fail("spill");
-            }
-        }
-    }
-
-    // noinspection FunctionWithMultipleLoopsJS
-    @test
-    async unboundedSize0SyncStream() {
-        const values = writeStream<number>({...Distinct});
-        for (let value of someValues) await values.write(value);
-        const actual = [];
-        let received = 0;
-        for await (let value of values) {
-            received = received + 1;
-            actual.push(value);
-            if (received == someValues.length) {
-                assert.deepEqual(actual, someValues);
-                await values.done();
-            }
-            if (received > someValues.length) {
-                fail("spill");
-            }
-        }
-    }
-
     @test
     async simpleSyncStreamAsyncFirstReceive() {
         const values = writeStream<number>();
@@ -304,7 +206,7 @@ export class WriteStreams {
                 assert.deepEqual(actual, someValues);
             }),
             delay(async () => {
-                for (let value of someValues) await values.write(value);
+                for (let value of someValues) values.write(value);
                 await values.done();
             })
         ]);
@@ -321,7 +223,7 @@ export class WriteStreams {
             }),
             delay(async () => {
                 for (let value of someValues) {
-                    await values.write(value);
+                    values.write(value);
                     await delay(0);
                 }
                 await values.done();
@@ -329,137 +231,12 @@ export class WriteStreams {
         ]);
     }
 
-    @test
-    async bufferSize0SyncAsyncFirstReceive() {
-        const values = writeStream<number>({...Distinct, size: 0});
-        await Promise.all([delay(async () => {
-            const actual = [];
-            for await (let value of values) actual.push(value);
-            assert.deepEqual(actual, someValues);
-
-        }), delay(async () => {
-            for (let value of someValues) await values.write(value);
-            await values.done();
-        })]);
-    }
-
-    @test()
-    async bufferSize0AsyncAsyncFirstReceive() {
-        const values = writeStream<number>({...Distinct, size: 0});
-        await Promise.all([delay(async () => {
-            const actual = [];
-            for await (let value of values) actual.push(value);
-            assert.deepEqual(actual, someValues);
-
-        }), delay(async () => {
-            for (let value of someValues) {
-                await values.write(value);
-                await delay(0);
-            }
-            await values.done();
-        })]);
-    }
-
-    @test
-    async bufferSize1SyncAsyncFirstReceive() {
-        const values = writeStream<number>({...Distinct, size: 1});
-        await Promise.all([delay(async () => {
-            const actual = [];
-            for await (let value of values) actual.push(value);
-            assert.deepEqual(actual, someValues);
-        }), delay(async () => {
-            for (let value of someValues) await values.write(value);
-            await values.done();
-        })]);
-    }
-
-    @test()
-    async bufferSize1AsyncAsyncFirstReceive() {
-        const values = writeStream<number>({...Distinct, size: 1});
-        await Promise.all([delay(async () => {
-            const actual = [];
-            for await (let value of values) actual.push(value);
-            assert.deepEqual(actual, someValues);
-
-        }), delay(async () => {
-            for (let value of someValues) {
-                await values.write(value);
-                await delay(0);
-            }
-            await values.done();
-        })]);
-    }
-
-    @test
-    async bufferSize2SyncAsyncFirstReceive() {
-        const values = writeStream<number>({...Distinct, size: 2});
-        await Promise.all([delay(async () => {
-            const actual = [];
-            for await (let value of values) actual.push(value);
-            assert.deepEqual(actual, someValues);
-
-        }), delay(async () => {
-            for (let value of someValues) await values.write(value);
-            await values.done();
-        })]);
-    }
-
-    @test()
-    async bufferSize2AsyncAsyncFirstReceive() {
-        const values = writeStream<number>({...Distinct, size: 2});
-        await Promise.all([delay(async () => {
-            const actual = [];
-            for await (let value of values) actual.push(value);
-            assert.deepEqual(actual, someValues);
-
-        }), delay(async () => {
-            for (let value of someValues) {
-                await values.write(value);
-                await delay(0);
-            }
-            await values.done();
-        })]);
-    }
-
-    @test
-    async bufferSize3SyncAsyncFirstReceive() {
-        const values = writeStream<number>({...Distinct, size: 3});
-        await Promise.all([delay(async () => {
-            const actual = [];
-            for await (let value of values) actual.push(value);
-            assert.deepEqual(actual, someValues);
-
-        }), delay(async () => {
-            for (let value of someValues) {
-                await values.write(value);
-            }
-            await values.done();
-        })]);
-    }
-
-    @test()
-    async bufferSize3AsyncAsyncFirstReceive() {
-        const values = writeStream<number>({...Distinct, size: 3});
-        await Promise.all([delay(async () => {
-            const actual = [];
-            for await (let value of values) actual.push(value);
-            assert.deepEqual(actual, someValues);
-
-        }), delay(async () => {
-            for (let value of someValues) {
-                await values.write(value);
-                await delay(0);
-            }
-            await values.done();
-        })]);
-    }
-
     // noinspection FunctionWithMultipleLoopsJS
     @test
     async simpleSyncStream1Repeat() {
         const replay = 1;
         const values = writeStream<number>({...Distinct, replay});
-        for (let value of someValues) await values.write(value);
+        for (let value of someValues) values.write(value);
         await values.done();
         const actual = [];
         for await (let value of values) actual.push(value);
@@ -471,23 +248,37 @@ export class WriteStreams {
     async simpleSyncStream2Repeat() {
         const replay = 2;
         const values = writeStream<number>({...Distinct, replay});
-        for (let value of someValues) await values.write(value);
+        for (let value of someValues) values.write(value);
         await values.done();
         const actual = [];
         for await (let value of values) actual.push(value);
         assert.deepEqual(actual, someValues.slice(-replay));
     }
 
-    // noinspection FunctionWithMultipleLoopsJS
-    @test
-    async simpleSyncStream1Size1Repeat() {
-        const replay = 1;
-        const values = writeStream<number>({...Distinct, replay, size: replay});
-        for (let value of someValues) await values.write(value);
-        await values.done();
-        const actual = [];
-        for await (let value of values) actual.push(value);
-        assert.deepEqual(actual, someValues.slice(-replay));
+    @test(timeout(0x10 * 1000))
+    async simpleAsyncStreamTTL100ms() {
+        const ttl = 0;
+        const values = writeStream<number>({ttl});
+        const expected = someValues.slice(0, 0x10);
+        await Promise.all([delay(async () => {
+            try {
+                for (let value of expected) {
+                    await wait(ttl);
+                    await delay(async () => values.write(value));
+                }
+                await delay(() => values.done());
+            } catch (e) {
+                fail(e);
+            }
+        }),
+            delay(async () => {
+                const actual = [];
+                for await (let value of values) {
+                    actual.push(value);
+                }
+                assert.deepEqual(actual, expected);
+            })
+        ]);
     }
 }
 
@@ -497,7 +288,7 @@ export class SharedWriteStreams {
     @test
     async simpleSyncShare2() {
         const values = writeStream<number>();
-        for (let value of someValues) await values.write(value);
+        for (let value of someValues) values.write(value);
         await values.done();
         const actual1 = [];
         for await (let value of values) actual1.push(value);
@@ -511,7 +302,7 @@ export class SharedWriteStreams {
     @test
     async simpleSyncShare3() {
         const values = writeStream<number>();
-        for (let value of someValues) await values.write(value);
+        for (let value of someValues) values.write(value);
         await values.done();
         const actual1 = [];
         for await (let value of values) actual1.push(value);
@@ -527,7 +318,7 @@ export class SharedWriteStreams {
     @test
     async simpleAsyncShare2() {
         const values = writeStream<number>();
-        for (let value of someValues) await values.write(value);
+        for (let value of someValues) values.write(value);
         await values.done();
         await Promise.all([
             (async () => {
@@ -539,70 +330,13 @@ export class SharedWriteStreams {
                 const actual = [];
                 for await (let value of values) actual.push(value);
                 assert.deepEqual(actual, someValues);
-            })()]);
-    }
-
-    @test
-    async simpleAsyncShare2Size2() {
-        const size = 2;
-        const values = writeStream<number>({size});
-        for (let value of someValues) await values.write(value);
-        await values.done();
-        await Promise.all([
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues.slice(-size));
-            })(),
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues.slice(-size));
-            })()]);
-    }
-
-
-    @test
-    async simpleAsyncShare2Size1() {
-        const size = 1;
-        const values = writeStream<number>({size});
-        for (let value of someValues) await values.write(value);
-        await values.done();
-        await Promise.all([
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues.slice(-size));
-            })(),
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues.slice(-size));
-            })()]);
-    }
-
-    @test
-    async simpleAsyncShare2Size0() {
-        const values = writeStream<number>({size: 0});
-        for (let value of someValues) await values.write(value);
-        await values.done();
-        await Promise.all([
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, []);
-            })(),
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, []);
             })()]);
     }
 
     @test
     async simpleAsyncShare3() {
         const values = writeStream<number>();
-        for (let value of someValues) await values.write(value);
+        for (let value of someValues) values.write(value);
         await values.done();
         await Promise.all([
             (async () => {
@@ -627,7 +361,7 @@ export class SharedWriteStreams {
         const values = writeStream<number>();
         await Promise.all([
             (async () => {
-                for (let value of someValues) await values.write(value);
+                for (let value of someValues) values.write(value);
                 await values.done();
             })(),
             (async () => {
@@ -652,7 +386,7 @@ export class SharedWriteStreams {
                 assert.deepEqual(actual, someValues);
             })(),
             (async () => {
-                for (let value of someValues) await values.write(value);
+                for (let value of someValues) values.write(value);
                 await values.done();
             })(),
             (async () => {
@@ -667,7 +401,7 @@ export class SharedWriteStreams {
         const values = writeStream<number>();
         await Promise.all([
             (async () => {
-                for (let value of someValues) await values.write(value);
+                for (let value of someValues) values.write(value);
                 await values.done();
             })(),
             (async () => {
@@ -702,7 +436,7 @@ export class SharedWriteStreams {
                 assert.deepEqual(actual, someValues);
             })(),
             (async () => {
-                for (let value of someValues) await values.write(value);
+                for (let value of someValues) values.write(value);
                 await values.done();
             })(),
             (async () => {
@@ -727,7 +461,7 @@ export class SharedWriteStreams {
                 assert.deepEqual(actual, someValues);
             })(),
             delay(async () => {
-                for (let value of someValues) await values.write(value);
+                for (let value of someValues) values.write(value);
                 await values.done();
             }),
             (async () => {
@@ -735,138 +469,6 @@ export class SharedWriteStreams {
                 for await (let value of values) actual.push(value);
                 assert.deepEqual(actual, someValues);
             })()]);
-    }
-
-    @test
-    async simpleAsyncShare3AsyncWriteTween2Size2() {
-        const size = 2;
-        const values = writeStream<number>({size});
-        await Promise.all([
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues);
-            })(),
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues);
-            })(),
-            (async () => {
-                for (let value of someValues) await values.write(value);
-                await values.done();
-            })(),
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues);
-            })()]);
-    }
-
-    @test
-    async simpleAsyncShare3MixedWriteSize2() {
-        const size = 2;
-        const values = writeStream<number>({size});
-        await Promise.all([
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues);
-            })(),
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues);
-            })(),
-            (async () => {
-                for (let value of someValues) await values.write(value);
-                await values.done();
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues.slice(-size));
-            })()
-        ]);
-    }
-
-    @test
-    async distinctAsyncShare3MixedWriteSize2() {
-        const size = 2;
-        const values = writeStream<number>({...Distinct, size});
-        await Promise.all([
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues);
-            })(),
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues);
-            })(),
-            (async () => {
-                for (let value of [0, 0, 0, ...someValues]) await values.write(value);
-                await values.done();
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues.slice(-size));
-            })()
-        ]);
-    }
-
-    @test
-    async distinctTailAsyncShare3MixedWriteSize2() {
-        const size = 2;
-        const values = writeStream<number>({...Distinct, size});
-        await Promise.all([
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues);
-            })(),
-            (async () => {
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues);
-            })(),
-            (async () => {
-                for (let value of [...someValues, someValuesLength - 1, someValuesLength - 1]) await values.write(value);
-                await values.done();
-                const actual = [];
-                for await (let value of values) actual.push(value);
-                assert.deepEqual(actual, someValues.slice(-size));
-            })()
-        ]);
-    }
-
-    @test
-    async distinctTailAsyncShare3MixedWriteSize2Repeat2() {
-        const size = 2;
-        const values = writeStream<number>({...Distinct, size, replay: size});
-        await Promise.all([
-            (async () => {
-                const actual = [];
-                for await (let value of values) {
-                    actual.push(value);
-                }
-                assert.deepEqual(actual, someValues);
-            })(),
-            (async () => {
-                const actual = [];
-                for await (let value of values) {
-                    actual.push(value);
-                }
-                assert.deepEqual(actual, someValues);
-            })(),
-            (async () => {
-                for (let value of [...someValues, someValuesLength - 1, someValuesLength - 1]) await values.write(value);
-                await values.done();
-                const actual = [];
-                for await (let value of values) {
-                    actual.push(value);
-                }
-                assert.deepEqual(actual, someValues.slice(-size));
-            })()
-        ]);
     }
 }
 
@@ -908,7 +510,7 @@ export class DemuxStreams {
     async simpleDemux() {
         const values = demux<number, number>(x => x % 2);
         for (let value of someValues) {
-            await values.write(value);
+            values.write(value);
         }
         await values.done();
         const actualEven = [];
@@ -921,5 +523,71 @@ export class DemuxStreams {
         }
         assert.deepEqual(actualEven, someValues.filter(x => x % 2 === 0));
         assert.deepEqual(actualOdd, someValues.filter(x => x % 2 === 1));
+    }
+}
+
+
+@suite
+export class MuxStreams {
+    @test
+    async simpleMux() {
+        const values = mux<string, number>();
+
+        function* even() {
+            for (let i of someValues) {
+                yield (i++) * 2;
+            }
+        }
+
+        function* odd() {
+            for (let i of even()) yield i + 1;
+        }
+
+        values.attach("even", stream(even));
+        values.attach("odd", stream(odd));
+        const actual = new Map<string, number[]>();
+        actual.set("odd", []);
+        actual.set("even", []);
+        for await (let {category, value, done} of values) {
+            if (!done) actual.get(category)!.push(value);
+        }
+        assert.deepEqual(Array.from(even()), actual.get('even'));
+        assert.deepEqual(Array.from(odd()), actual.get('odd'));
+    }
+}
+
+@suite
+export class RollupStreams {
+    @test
+    async simpleRollup() {
+        const values = rollup<string, number>(undefined, {syncFirst: true});
+
+        function* even() {
+            for (let i of someValues) {
+                yield (i++) * 2;
+            }
+        }
+
+        function* odd() {
+            for (let i of even()) yield i + 1;
+        }
+
+        values.attach("even", stream(even));
+        values.attach("odd", stream(odd));
+        const actual = new Map<string, number[]>();
+        actual.set("odd", []);
+        actual.set("even", []);
+        let old_odd = -1;
+        let old_even = -1;
+        for await (let map of values) {
+            const odd = map.get('odd')!;
+            const even = map.get('even')!;
+            if (odd !== old_odd) actual.get('odd')!.push(odd);
+            if (even !== old_even) actual.get('even')!.push(even);
+            old_odd = odd;
+            old_even = even;
+        }
+        assert.deepEqual(Array.from(even()), actual.get('even'));
+        assert.deepEqual(Array.from(odd()), actual.get('odd'));
     }
 }

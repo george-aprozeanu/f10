@@ -1,7 +1,7 @@
 import {Stream} from "./stream";
-import {SeqConfig, SeqStream, Wrap} from "./seq-stream";
+import {SeqConfig, SeqStream, PromiseWrap} from "./seq-stream";
 
-export class SharedStream<Out> extends SeqStream<Out, Wrap<Out>> {
+export class SharedStream<Out> extends SeqStream<Out, PromiseWrap<Out>> {
     constructor(private stream: AsyncIterator<Out>, config: SeqConfig) {
         super(config);
     }

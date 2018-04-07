@@ -28,16 +28,16 @@ export class DemuxStream<Cat, Out> implements Sink<Out> {
         return this.unqualified;
     }
 
-    async write(value: Out) {
+    write(value: Out) {
         const cat = this.qualifier(value);
-        if (cat !== undefined) return await this.getCat(cat).write(value);
+        if (cat !== undefined) return this.getCat(cat).write(value);
         else if (this.config.streamUnqualified) {
-            return await this.getUnqualified().write(value);
+            return this.getUnqualified().write(value);
         }
     }
 
-    async done() {
-        for (let stream of this.streams.values()) await stream.done();
+    done() {
+        for (let stream of this.streams.values()) stream.done();
     }
 
     get(cat: Cat): Stream<Out> {

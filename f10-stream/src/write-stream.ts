@@ -1,8 +1,9 @@
 import {DefferWrap, Reject, Resolve, SeqConfig, SeqStream, Value} from "./seq-stream";
 
 export interface Sink<T> {
-    write(t: T): Promise<void>;
-    done(): Promise<void>;
+    write(t: T): void;
+
+    done(): void;
 }
 
 export interface WriteConfig extends SeqConfig {
@@ -13,9 +14,8 @@ export const Distinct = {distinct: true};
 
 export class WriteStream<T> extends SeqStream<T, DefferWrap<T>> implements Sink<T> {
 
-
-    private prevSeq = -1;
     private prevValue?: T;
+    private next: number = 0;
 
     constructor(protected config: WriteConfig) {
         super(config);
@@ -38,7 +38,7 @@ export class WriteStream<T> extends SeqStream<T, DefferWrap<T>> implements Sink<
     }
 
     set value(value: T) {
-        this.write(value).catch(console.error);
+        this.write(value);
     }
 
     protected demand() {
@@ -55,20 +55,18 @@ export class WriteStream<T> extends SeqStream<T, DefferWrap<T>> implements Sink<
         return wrap;
     }
 
-    private async offer(result: IteratorResult<T>) {
-        if (this.seq === this.prevSeq && this.seq !== this.last) throw new Error("write:!await");
+    private offer(result: IteratorResult<T>) {
         if (this.config.distinct) {
             if (this.prevValue !== undefined && !result.done && result.value === this.prevValue) return;
         }
         this.prevValue = result.value;
-        this.prevSeq = this.seq;
         if (this.last !== undefined) {
             if (result.done) return;
             else throw new Error("write:done");
         }
-        const next = this.getSeq(this.seq);
+        const next = this.getSeq(this.next);
+        this.next += 1;
         next.wrap.resolve!(result);
-        await next.wrap.promise;
     }
 }
 
