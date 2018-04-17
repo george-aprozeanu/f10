@@ -1,4 +1,4 @@
-import {stream, writeStream, Distinct, demux, mux, rollup} from "../f10-stream/src";
+import {stream, writeStream, Distinct, demux, mux, rollup, valueStream} from "../f10-stream/src";
 
 import {suite, test, timeout} from "mocha-typescript";
 import {default as assert, fail} from "assert";
@@ -278,6 +278,62 @@ export class WriteStreams {
                 }
                 assert.deepEqual(actual, expected);
             })
+        ]);
+    }
+
+    @test
+    async testReread() {
+        const values = valueStream<number>();
+        for (let value of someValues) {
+            values.write(value);
+        }
+        await Promise.all([
+            (async () => {
+                let actualValue;
+                for await (let value of values) {
+                    actualValue = value;
+                }
+                assert.equal(actualValue, someValues[someValues.length - 1])
+            })(),
+            (async () => {
+                let actualValue;
+                for await (let value of values) {
+                    actualValue = value;
+                }
+                assert.equal(actualValue, someValues[someValues.length - 1])
+            })(),
+            (async () => {
+                await new Promise((resolve, reject) => setTimeout(() => {
+                    values.done();
+                    resolve();
+                }, 100));
+            })()
+        ]);
+    }
+
+    @test
+    async testRereadDone() {
+        const values = valueStream<number>();
+        for (let value of someValues) {
+            values.write(value);
+        }
+        values.done();
+        await delay(() => undefined);
+        await Promise.all([
+            (async () => {
+                let actualValue;
+                for await (let value of values) {
+                    actualValue = value;
+                }
+                assert.equal(actualValue, someValues[someValues.length - 1])
+            })(),
+            (async () => {
+                let actualValue;
+                for await (let value of values) {
+                    actualValue = value;
+                }
+                assert.equal(actualValue, someValues[someValues.length - 1])
+            })()
         ]);
     }
 }

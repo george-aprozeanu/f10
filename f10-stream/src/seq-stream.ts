@@ -53,7 +53,8 @@ export abstract class SeqStream<T, W extends PromiseWrap<T>> extends Stream<T> {
     }
 
     [Symbol.asyncIterator]() {
-        let seq = this.config.replay !== undefined ? this.buffer.length - 1 - this.config.replay : 0;
+        let seq = this.config.replay !== undefined ? this.buffer.length -
+            (this.config.replay + (this.last !== undefined ? 1 : 0)) : 0;
         return {
             next: () => {
                 const value = this.getSeq(seq);

@@ -1,0 +1,12 @@
+{
+  "name": "f10-css-layout",
+  "version": "1.0.0",
+  "main": "index.css",
+  "license": "MIT",
+  "scripts": {
+    "build": "node-sass index.scss -o dist"
+  },
+  "devDependencies": {
+    "node-sass": "^4.8.3"
+  }
+}
