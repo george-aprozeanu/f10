@@ -42,6 +42,7 @@ export const Value = {replay: 1};
 export abstract class SeqStream<T, W extends PromiseWrap<T>> extends Stream<T> {
 
     protected last?: number;
+    protected offeredSeq?: number;
 
     private first = 0;
     private buffer = [] as Seq<T, W>[];
@@ -52,9 +53,12 @@ export abstract class SeqStream<T, W extends PromiseWrap<T>> extends Stream<T> {
         super();
     }
 
+    private firstReadableSeq() {
+        return Math.max((this.offeredSeq || 0) - (this.config.replay || ((this.offeredSeq || 0) + 1)) + 1, 0);
+    }
+
     [Symbol.asyncIterator]() {
-        let seq = this.config.replay !== undefined ? this.buffer.length -
-            (this.config.replay + (this.last !== undefined ? 1 : 0)) : 0;
+        let seq = this.firstReadableSeq();
         return {
             next: () => {
                 const value = this.getSeq(seq);
@@ -75,7 +79,8 @@ export abstract class SeqStream<T, W extends PromiseWrap<T>> extends Stream<T> {
     private trimTTL() {
         const now = Date.now();
         let i = 0;
-        while (i < this.buffer.length && this.buffer[i].ttl < now) i++;
+        const lastIndex = Math.max(this.firstReadableSeq() - this.first, 0);
+        while (i < lastIndex && this.buffer[i].ttl < now) i++;
         this.first += i;
         this.buffer.splice(0, i);
     }
@@ -89,7 +94,12 @@ export abstract class SeqStream<T, W extends PromiseWrap<T>> extends Stream<T> {
     private nextSeq(seq: number) {
         const demand = this.demand();
         demand.promise = demand.promise.then(result => {
-            if (result.done) this.last = seq;
+            if (result.done) {
+                this.last = seq;
+                this.offeredSeq = Math.max(seq - 1, (this.offeredSeq || 0) - 1, 0);
+            } else {
+                this.offeredSeq = Math.max(seq, this.offeredSeq || 0);
+            }
             this.trimTTL();
             return result;
         });

@@ -65,6 +65,7 @@ export class WriteStream<T> extends SeqStream<T, DefferWrap<T>> implements Sink<
             else throw new Error("write:done");
         }
         const next = this.getSeq(this.next);
+        this.offeredSeq = this.next;
         this.next += 1;
         next.wrap.resolve!(result);
     }

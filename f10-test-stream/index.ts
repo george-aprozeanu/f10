@@ -4,7 +4,7 @@ import {suite, test, timeout} from "mocha-typescript";
 import {default as assert, fail} from "assert";
 
 const someValues = [] as number[];
-const someValuesLength = 0x1000;
+const someValuesLength = 0x10;
 for (let i = 0; i < someValuesLength; i++) someValues.push(i);
 
 function delay<T>(fn: Promise<T> | T | (() => T | Promise<T>)) {
@@ -289,24 +289,56 @@ export class WriteStreams {
         }
         await Promise.all([
             (async () => {
-                let actualValue;
+                let actualValues = [];
                 for await (let value of values) {
-                    actualValue = value;
+                    actualValues.push(value);
                 }
-                assert.equal(actualValue, someValues[someValues.length - 1])
+                assert.deepEqual(actualValues, [someValues[someValues.length - 1]]);
             })(),
             (async () => {
-                let actualValue;
+                let actualValues = [];
                 for await (let value of values) {
-                    actualValue = value;
+                    actualValues.push(value);
                 }
-                assert.equal(actualValue, someValues[someValues.length - 1])
+                assert.deepEqual(actualValues, [someValues[someValues.length - 1]]);
             })(),
             (async () => {
                 await new Promise((resolve, reject) => setTimeout(() => {
                     values.done();
                     resolve();
                 }, 100));
+            })()
+        ]);
+    }
+
+    @test
+    async testRereadTTL() {
+        const ttl = 100;
+        const replay = 1;
+        const values = valueStream<number>({ttl, replay});
+        for (let value of someValues) {
+            await delay(() => undefined);
+            values.write(value);
+        }
+        await Promise.all([
+            (async () => {
+                const expectedValues = someValues.slice(-replay);
+                for (let attempt of [1, 2, 3]) {
+                    let actualValues = [];
+                    for await (let value of values) {
+                        actualValues.push(value);
+                    }
+                    assert.deepEqual(actualValues, expectedValues, `attempt ${attempt}: 
+                        actual: ${actualValues}
+                      expected: ${expectedValues}`);
+                }
+            })(),
+            (async () => {
+                await new Promise((resolve, reject) => setTimeout(() => {
+                    console.log('done');
+                    values.done();
+                    resolve();
+                }, ttl * 10));
             })()
         ]);
     }
@@ -321,18 +353,18 @@ export class WriteStreams {
         await delay(() => undefined);
         await Promise.all([
             (async () => {
-                let actualValue;
+                let actualValues = [];
                 for await (let value of values) {
-                    actualValue = value;
+                    actualValues.push(value);
                 }
-                assert.equal(actualValue, someValues[someValues.length - 1])
+                assert.deepEqual(actualValues, [someValues[someValues.length - 1]]);
             })(),
             (async () => {
-                let actualValue;
+                let actualValues = [];
                 for await (let value of values) {
-                    actualValue = value;
+                    actualValues.push(value);
                 }
-                assert.equal(actualValue, someValues[someValues.length - 1])
+                assert.deepEqual(actualValues, [someValues[someValues.length - 1]]);
             })()
         ]);
     }
