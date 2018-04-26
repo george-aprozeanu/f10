@@ -338,7 +338,7 @@ export class WriteStreams {
                     console.log('done');
                     values.done();
                     resolve();
-                }, ttl * 10));
+                }, ttl * 2));
             })()
         ]);
     }

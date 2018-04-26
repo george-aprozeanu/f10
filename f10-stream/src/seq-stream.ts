@@ -54,11 +54,11 @@ export abstract class SeqStream<T, W extends PromiseWrap<T>> extends Stream<T> {
     }
 
     private firstReadableSeq() {
-        return Math.max((this.offeredSeq || 0) - (this.config.replay || ((this.offeredSeq || 0) + 1)) + 1, 0);
+        return Math.max((this.offeredSeq || 0) - (this.config.replay || 0) + 1, 0);
     }
 
     [Symbol.asyncIterator]() {
-        let seq = this.firstReadableSeq();
+        let seq = this.config.replay !== undefined ? this.firstReadableSeq() : this.first;
         return {
             next: () => {
                 const value = this.getSeq(seq);
@@ -79,7 +79,8 @@ export abstract class SeqStream<T, W extends PromiseWrap<T>> extends Stream<T> {
     private trimTTL() {
         const now = Date.now();
         let i = 0;
-        const lastIndex = Math.max(this.firstReadableSeq() - this.first, 0);
+        const first = this.firstReadableSeq();
+        const lastIndex = Math.max(first - this.first, 0);
         while (i < lastIndex && this.buffer[i].ttl < now) i++;
         this.first += i;
         this.buffer.splice(0, i);
