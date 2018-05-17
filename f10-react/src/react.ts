@@ -1,4 +1,4 @@
-import { Component } from "react";
+import {Component} from "react";
 
 export interface LifecycleAttachment {
     mount(component: Component): void;
@@ -24,8 +24,13 @@ const F10 = Symbol.for('Symbol.F10');
 function stateMutation<T, S extends T>(componentPrototype: Component<any, S>, iterableFn: () => AsyncIterable<T>) {
 
     async function execute(component: Component) {
-        const state = {mounted: true};
-        (component as any)[F10] = state;
+        let state: { mounted: boolean };
+        if ((component as any)[F10] === undefined) {
+            state = {mounted: true};
+            (component as any)[F10] = state;
+        } else {
+            state = (component as any)[F10];
+        }
         const iterator = iterableFn.apply(component)[Symbol.asyncIterator]();
         let result: IteratorResult<any> | undefined = undefined;
         do {
