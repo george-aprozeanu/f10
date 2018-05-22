@@ -1,4 +1,4 @@
-import {stream, writeStream, Distinct, demux, mux, rollup, valueStream} from "../f10-stream/src";
+import {demux, Distinct, mux, rollup, stream, valueStream, writeStream} from "../f10-stream/src";
 
 import {suite, test, timeout} from "mocha-typescript";
 import {default as assert, fail} from "assert";
@@ -243,6 +243,57 @@ export class WriteStreams {
         assert.deepEqual(actual, someValues.slice(-replay));
     }
 
+    @test
+    async simpleSyncStream1Repeat2() {
+        const replay = 1;
+        const values = writeStream<number>({...Distinct, replay});
+        for (let value of someValues) values.write(value);
+        await values.done();
+        let actual = [];
+        for await (let value of values) actual.push(value);
+        assert.deepEqual(actual, someValues.slice(-replay));
+        actual = [];
+        for await (let value of values) actual.push(value);
+        assert.deepEqual(actual, someValues.slice(-replay));
+        actual = [];
+        for await (let value of values) actual.push(value);
+        assert.deepEqual(actual, someValues.slice(-replay));
+    }
+
+
+    @test
+    async simpleSyncStream1Repeat2value() {
+        const replay = 1;
+        const values = valueStream<number>();
+        for (let value of someValues) values.write(value);
+        await values.done();
+        let actual = [];
+        for await (let value of values) actual.push(value);
+        assert.deepEqual(actual, someValues.slice(-replay));
+        actual = [];
+        for await (let value of values) actual.push(value);
+        assert.deepEqual(actual, someValues.slice(-replay));
+        actual = [];
+        for await (let value of values) actual.push(value);
+        assert.deepEqual(actual, someValues.slice(-replay));
+    }
+
+    @test
+    async simpleAsyncStream1Repeat2value() {
+        const replay = 1;
+        const values = valueStream<number>();
+        for (let value of someValues) values.write(value);
+        await delay(async () => {
+            let actual = [];
+            for await (let value of values) {
+                console.log('zang', value);
+                values.done();
+            };
+            // assert.deepEqual(actual, someValues.slice(-replay));
+        });
+
+    }
+
     // noinspection FunctionWithMultipleLoopsJS
     @test
     async simpleSyncStream2Repeat() {
@@ -335,7 +386,6 @@ export class WriteStreams {
             })(),
             (async () => {
                 await new Promise((resolve, reject) => setTimeout(() => {
-                    console.log('done');
                     values.done();
                     resolve();
                 }, ttl * 2));

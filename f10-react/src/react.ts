@@ -51,9 +51,9 @@ function stateMutation<T, S extends T>(componentPrototype: Component<any, S>, it
     });
 }
 
-export const Mutation = <M>(iterable: AsyncIterable<M>) =>
+export const Mutation = <M>(iterable: () => AsyncIterable<M>) =>
     <S extends M>(target: { new(...args: any[]): Component<any, S> }) => {
-        if (typeof target === 'function') stateMutation(target.prototype, () => iterable);
+        if (typeof target === 'function') stateMutation(target.prototype, iterable);
         else console.error(`@Mutation of ${target} was not installed`);
     };
 
