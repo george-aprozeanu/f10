@@ -1,4 +1,4 @@
-import {demux, Distinct, mux, rollup, stream, valueStream, writeStream, mergeStream} from "../f10-stream/src";
+import {Distinct, rollup, stream, valueStream, writeStream, merge} from "../f10-stream/src";
 
 import {suite, test, timeout} from "mocha-typescript";
 import {default as assert, fail} from "assert";
@@ -644,94 +644,6 @@ export class SharedStreams {
 }
 
 @suite
-export class DemuxStreams {
-	@test
-	async simpleDemux() {
-		const values = demux<number, number>(x => x % 2);
-		for (let value of someValues) {
-			values.write(value);
-		}
-		await values.done();
-		const actualEven = [];
-		for await (let value of values.get(0)) {
-			actualEven.push(value);
-		}
-		const actualOdd = [];
-		for await (let value of values.get(1)) {
-			actualOdd.push(value);
-		}
-		assert.deepEqual(actualEven, someValues.filter(x => x % 2 === 0));
-		assert.deepEqual(actualOdd, someValues.filter(x => x % 2 === 1));
-	}
-}
-
-
-@suite
-export class MuxStreams {
-	@test
-	async simpleMux() {
-		const values = mux<string, number>();
-
-		function* even() {
-			for (let i of someValues) {
-				yield (i++) * 2;
-			}
-		}
-
-		function* odd() {
-			for (let i of even()) yield i + 1;
-		}
-
-		values.attach("even", stream(even));
-		values.attach("odd", stream(odd));
-		const actual = new Map<string, number[]>();
-		actual.set("odd", []);
-		actual.set("even", []);
-		for await (let {category, value, done} of values) {
-			if (!done) actual.get(category)!.push(value);
-		}
-		assert.deepEqual(Array.from(even()), actual.get('even'));
-		assert.deepEqual(Array.from(odd()), actual.get('odd'));
-	}
-}
-
-@suite
-export class RollupStreams {
-	@test
-	async simpleRollup() {
-		const values = rollup<string, number>(undefined, {syncFirst: true});
-
-		function* even() {
-			for (let i of someValues) {
-				yield (i++) * 2;
-			}
-		}
-
-		function* odd() {
-			for (let i of even()) yield i + 1;
-		}
-
-		values.attach("even", stream(even));
-		values.attach("odd", stream(odd));
-		const actual = new Map<string, number[]>();
-		actual.set("odd", []);
-		actual.set("even", []);
-		let old_odd = -1;
-		let old_even = -1;
-		for await (let map of values) {
-			const odd = map.get('odd')!;
-			const even = map.get('even')!;
-			if (odd !== old_odd) actual.get('odd')!.push(odd);
-			if (even !== old_even) actual.get('even')!.push(even);
-			old_odd = odd;
-			old_even = even;
-		}
-		assert.deepEqual(Array.from(even()), actual.get('even'));
-		assert.deepEqual(Array.from(odd()), actual.get('odd'));
-	}
-}
-
-@suite
 export class MergedStreams {
 	@test
 	async simpleMergeSync() {
@@ -743,16 +655,17 @@ export class MergedStreams {
 		for (let i = 0; i < someValuesLength; i++) {
 			expected.push(someValues[i], someValues[i] * 10);
 		}
-		const merge = mergeStream([values1, values2]);
+		const merged = merge([values1, values2]);
 		const actual = [];
-		for await (let value of merge) {
+		for await (let value of merged) {
 			actual.push(value);
 		}
 		assert.deepEqual(actual, expected);
 	}
+
 	@test
 	async simpleMergeAsync() {
-		const values1 = stream(async function*() {
+		const values1 = stream(async function* () {
 			for (const value of someValues) yield await delay(() => value);
 		});
 		const values2 = stream(async function* () {
@@ -762,9 +675,9 @@ export class MergedStreams {
 		for (let i = 0; i < someValuesLength; i++) {
 			expected.push(someValues[i], someValues[i] * 10);
 		}
-		const merge = mergeStream([values1, values2]);
+		const merged = merge([values1, values2]);
 		const actual = [];
-		for await (let value of merge) {
+		for await (let value of merged) {
 			actual.push(value);
 		}
 		assert.deepEqual(actual, expected);

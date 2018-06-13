@@ -1,52 +1,52 @@
-import {DefferWrap, DefferWrapImpl, SeqConfig, SeqStream} from "./seq-stream";
+import {SeqConfig} from "./seq-stream";
+import {OfferStream} from "./offer-stream";
 
-export class MergeStream<T> extends SeqStream<T, DefferWrap<T>> {
+export class MergeStream<T> extends OfferStream<T> {
 
 	private demanded = new Set<AsyncIterator<T>>();
 	private free = new Set<AsyncIterator<T>>();
-	private next = 0;
+	private nextFree: Promise<AsyncIterator<T>>;
 
 	constructor(streams: AsyncIterable<T>[], config: SeqConfig) {
 		super(config);
 		for (const stream of streams) this.free.add(stream[Symbol.asyncIterator]());
+		if (this.free.size === 0) throw new Error("merge:zero");
+		this.nextFree = Promise.resolve(this.free.values().next().value);
 	}
 
-	private errorFrom(iterator: AsyncIterator<T>) {
-		return (failure: Error) => {
-			this.demanded.delete(iterator);
-			console.error(failure);
-		}
-	}
-
-	private offerFrom(iterator: AsyncIterator<T>) {
-		return (result: IteratorResult<T>) => {
+	private async advance(iterator: AsyncIterator<T>) {
+		try {
+			this.demanded.add(iterator);
+			const result = await iterator.next();
 			this.demanded.delete(iterator);
 			if (!result.done) {
 				this.free.add(iterator);
-				const next = this.getSeq(this.next);
-				this.offeredSeq = this.next;
-				this.next += 1;
-				next.wrap.resolve!(result);
-			} else {
-				if (this.demanded.size === 0 && this.free.size === 0) {
-					const next = this.getSeq(this.next);
-					this.offeredSeq = this.next;
-					next.wrap.resolve!(result);
-				}
-			}
-		};
+				this.offer(result);
+			} else if (this.demanded.size === 0 && this.free.size === 0) this.offer(result);
+			return iterator;
+		} catch (e) {
+			console.error(e);
+			return iterator;
+		}
 	}
 
-	protected demand(): DefferWrap<T> {
-		for (const iterator of this.free) {
-			this.demanded.add(iterator);
-			iterator.next().then(this.offerFrom(iterator), this.errorFrom(iterator));
+	private* advanceAll() {
+		for (const iterator of this.free.values()) {
+			yield this.advance(iterator);
 		}
+	}
+
+	private unFree = () => {
+		this.nextFree = Promise.race(this.advanceAll());
 		this.free.clear();
-		return new DefferWrapImpl<T>();
+	};
+
+	protected onDemand() {
+		if (this.free.size > 0) this.unFree();
+		else this.nextFree.then(this.unFree);
 	}
 }
 
-export function mergeStream<T>(streams: AsyncIterable<T>[], config: SeqConfig = {}) {
+export function merge<T>(streams: AsyncIterable<T>[], config: SeqConfig = {}) {
 	return new MergeStream(streams, config);
 }
