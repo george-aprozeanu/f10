@@ -1,4 +1,4 @@
-import {Distinct, rollup, stream, valueStream, writeStream, merge} from "../f10-stream/src";
+import {Distinct, merge, rollup, stream, valueStream, writeStream} from "../f10-stream/src";
 
 import {suite, test, timeout} from "mocha-typescript";
 import {default as assert, fail} from "assert";
@@ -647,8 +647,8 @@ export class SharedStreams {
 export class MergedStreams {
 	@test
 	async simpleMergeSync() {
-		const values1 = stream(someValues);
-		const values2 = stream(function* () {
+		const values1 = stream<number>(someValues);
+		const values2 = stream<number>(function* () {
 			for (let value of someValues) yield value * 10
 		});
 		const expected = [];
@@ -678,6 +678,52 @@ export class MergedStreams {
 		const merged = merge([values1, values2]);
 		const actual = [];
 		for await (let value of merged) {
+			actual.push(value);
+		}
+		assert.deepEqual(actual, expected);
+	}
+}
+
+
+@suite
+export class RollupStreams {
+	@test
+	async simpleRollupSync() {
+		const values1 = stream<{ value1: number }>(someValues.map(value1 => ({value1})));
+		const values2 = stream<{ value2: number }>(function* () {
+			for (let value of someValues) yield {value2: value * 10}
+		});
+		const expected = [];
+		let expectedValue: { value1?: number, value2?: number } = {};
+		for (let i = 0; i < someValuesLength; i++) {
+			expected.push(expectedValue = Object.assign({}, expectedValue, {value1: i}));
+			expected.push(expectedValue = Object.assign({}, expectedValue, {value2: i * 10}));
+		}
+		const rolledUp = rollup([values1, values2]);
+		const actual = [];
+		for await (let value of rolledUp) {
+			actual.push(value);
+		}
+		assert.deepEqual(actual, expected);
+	}
+
+	@test
+	async simpleRollupAsync() {
+		const values1 = stream(async function* () {
+			for (const value of someValues) yield await delay(() => ({value1: value}));
+		});
+		const values2 = stream(async function* () {
+			for (const value of someValues) yield await delay(() => ({value2: value * 10}));
+		});
+		const expected = [];
+		let expectedValue: { value1?: number, value2?: number } = {};
+		for (let i = 0; i < someValuesLength; i++) {
+			expected.push(expectedValue = Object.assign({}, expectedValue, {value1: i}));
+			expected.push(expectedValue = Object.assign({}, expectedValue, {value2: i * 10}));
+		}
+		const rolledUp = rollup([values1, values2]);
+		const actual = [];
+		for await (let value of rolledUp) {
 			actual.push(value);
 		}
 		assert.deepEqual(actual, expected);

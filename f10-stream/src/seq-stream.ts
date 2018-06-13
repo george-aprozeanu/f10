@@ -60,14 +60,8 @@ export abstract class SeqStream<T, W extends PromiseWrap<T>> extends Stream<T> {
 	private first = 0;
 	private buffer = [] as Seq<T, W>[];
 
-	protected abstract demand(): W;
-
 	protected constructor(protected config: SeqConfig) {
 		super();
-	}
-
-	private firstReadableSeq() {
-		return Math.max((this.offeredSeq || 0) - (this.config.replay || 0) + 1, 0);
 	}
 
 	[Symbol.asyncIterator]() {
@@ -81,12 +75,18 @@ export abstract class SeqStream<T, W extends PromiseWrap<T>> extends Stream<T> {
 		};
 	}
 
+	protected abstract demand(): W;
+
 	protected getSeq(seq: number) {
 		let index = this.correctSeq(seq) - this.first;
 		if (index >= this.buffer.length) for (let i = this.buffer.length; i <= index; i++)
 			this.buffer[i] = this.nextSeq(this.first + i);
 		else this.buffer[index].ttl = Date.now() + (this.config.ttl !== undefined ? this.config.ttl : DefaultTTL);
 		return this.buffer[index];
+	}
+
+	private firstReadableSeq() {
+		return Math.max((this.offeredSeq || 0) - (this.config.replay || 0) + 1, 0);
 	}
 
 	private trimTTL() {

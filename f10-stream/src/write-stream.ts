@@ -1,4 +1,4 @@
-import {DefferWrap, Reject, Resolve, SeqConfig, SeqStream, Value} from "./seq-stream";
+import {Value} from "./seq-stream";
 import {OfferConfig, OfferStream} from "./offer-stream";
 
 export interface Sink<T> {
@@ -15,6 +15,10 @@ export class WriteStream<T> extends OfferStream<T> implements Sink<T> {
 		super(config);
 	}
 
+	set value(value: T) {
+		this.write(value);
+	}
+
 	done(returnValue?: T) {
 		return this.offer({value: returnValue!, done: true});
 	}
@@ -28,14 +32,6 @@ export class WriteStream<T> extends OfferStream<T> implements Sink<T> {
 	}
 
 	protected onDemand() {
-	}
-
-	get value(): T {
-		return this.prevValue!;
-	}
-
-	set value(value: T) {
-		this.write(value);
 	}
 }
 

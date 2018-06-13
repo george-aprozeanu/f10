@@ -5,5 +5,5 @@ export type StreamSyncIterable<Out> = Iterable<Out> | (() => Iterable<Out>);
 
 
 export abstract class Stream<Out> implements AsyncIterable<Out> {
-    abstract [Symbol.asyncIterator](): AsyncIterator<Out>;
+	abstract [Symbol.asyncIterator](): AsyncIterator<Out>;
 }

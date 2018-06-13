@@ -13,6 +13,10 @@ export abstract class OfferStream<T> extends SeqStream<T, DefferWrap<T>> {
 		super(config);
 	}
 
+	public get value(): T | undefined {
+		return this.prevValue;
+	}
+
 	protected demand(): DefferWrap<T> {
 		const demand = new DefferWrapImpl<T>();
 		this.onDemand(demand);
