@@ -15,8 +15,12 @@ export class WriteStream<T> extends OfferStream<T> implements Sink<T> {
 		super(config);
 	}
 
-	set value(value: T) {
-		this.write(value);
+	get value(): T | undefined {
+		return this.prevValue;
+	}
+
+	set value(value: T | undefined) {
+		if (value !== undefined) this.write(value);
 	}
 
 	done(returnValue?: T) {
