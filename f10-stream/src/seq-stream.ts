@@ -56,9 +56,14 @@ export abstract class SeqStream<T, W extends PromiseWrap<T>> extends Stream<T> {
 
 	protected last?: number;
 	protected offeredSeq?: number;
+	protected prevValue?: T;
 
 	private first = 0;
 	private buffer = [] as Seq<T, W>[];
+
+	public get value(): T | undefined {
+		return this.prevValue;
+	}
 
 	protected constructor(protected config: SeqConfig) {
 		super();
@@ -112,6 +117,7 @@ export abstract class SeqStream<T, W extends PromiseWrap<T>> extends Stream<T> {
 				this.last = seq;
 				this.offeredSeq = Math.max(seq - 1, (this.offeredSeq || 0) - 1, 0);
 			} else {
+				this.prevValue = result.value;
 				this.offeredSeq = Math.max(seq, this.offeredSeq || 0);
 			}
 			this.trimTTL();

@@ -12,5 +12,8 @@
     "mocha-typescript": "^1.1.14",
     "ts-node": "^6.0.3",
     "typescript": "^2.8.3"
+  },
+  "scripts": {
+    "test": "mocha --require ts-node/register index.ts"
   }
 }

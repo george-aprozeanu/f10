@@ -3,6 +3,10 @@ import {OfferStream} from "./offer-stream";
 
 export class RollupStream<T extends object> extends OfferStream<T> {
 
+	protected last?: number;
+	protected offeredSeq?: number;
+	protected prevValue?: T;
+
 	private demanded = new Set<AsyncIterator<T>>();
 	private free = new Set<AsyncIterator<T>>();
 	private nextFree: Promise<AsyncIterator<T>>;
@@ -30,7 +34,8 @@ export class RollupStream<T extends object> extends OfferStream<T> {
 			this.demanded.delete(iterator);
 			if (!result.done) {
 				this.free.add(iterator);
-				this.offer({value: Object.assign({}, this.prevValue, result.value), done: false});
+				const value = Object.assign({}, this.prevValue, result.value);
+				this.offer({value, done: false});
 			} else if (this.demanded.size === 0 && this.free.size === 0) this.offer(result);
 			return iterator;
 		} catch (e) {
@@ -47,41 +52,41 @@ export class RollupStream<T extends object> extends OfferStream<T> {
 }
 
 export function rollup<T1 extends object, T2 extends object>(streams: [
-	AsyncIterable<T1>,
-	AsyncIterable<T2>], config?: SeqConfig): RollupStream<T1 & T2>;
+		AsyncIterable<T1>,
+		AsyncIterable<T2>], config?: SeqConfig): RollupStream<T1 & T2>;
 export function rollup<T1 extends object, T2 extends object, T3 extends object>(streams: [
-	AsyncIterable<T1>,
-	AsyncIterable<T2>,
-	AsyncIterable<T3>], config?: SeqConfig): RollupStream<T1 & T2 & T3>;
+		AsyncIterable<T1>,
+		AsyncIterable<T2>,
+		AsyncIterable<T3>], config?: SeqConfig): RollupStream<T1 & T2 & T3>;
 export function rollup<T1 extends object, T2 extends object, T3 extends object, T4 extends object>(streams: [
-	AsyncIterable<T1>,
-	AsyncIterable<T2>,
-	AsyncIterable<T3>,
-	AsyncIterable<T4>], config?: SeqConfig): RollupStream<T1 & T2 & T3 & T4>;
+		AsyncIterable<T1>,
+		AsyncIterable<T2>,
+		AsyncIterable<T3>,
+		AsyncIterable<T4>], config?: SeqConfig): RollupStream<T1 & T2 & T3 & T4>;
 export function rollup<T1 extends object, T2 extends object, T3 extends object,
-	T4 extends object, T5 extends object>(streams: [
-	AsyncIterable<T1>,
-	AsyncIterable<T2>,
-	AsyncIterable<T3>,
-	AsyncIterable<T4>,
-	AsyncIterable<T5>], config?: SeqConfig): RollupStream<T1 & T2 & T3 & T4 & T5>;
+		T4 extends object, T5 extends object>(streams: [
+		AsyncIterable<T1>,
+		AsyncIterable<T2>,
+		AsyncIterable<T3>,
+		AsyncIterable<T4>,
+		AsyncIterable<T5>], config?: SeqConfig): RollupStream<T1 & T2 & T3 & T4 & T5>;
 export function rollup<T1 extends object, T2 extends object, T3 extends object, T4 extends object,
-	T5 extends object, T6 extends object>(streams: [
-	AsyncIterable<T1>,
-	AsyncIterable<T2>,
-	AsyncIterable<T3>,
-	AsyncIterable<T4>,
-	AsyncIterable<T5>,
-	AsyncIterable<T6>], config?: SeqConfig): RollupStream<T1 & T2 & T3 & T4 & T5 & T6>;
+		T5 extends object, T6 extends object>(streams: [
+		AsyncIterable<T1>,
+		AsyncIterable<T2>,
+		AsyncIterable<T3>,
+		AsyncIterable<T4>,
+		AsyncIterable<T5>,
+		AsyncIterable<T6>], config?: SeqConfig): RollupStream<T1 & T2 & T3 & T4 & T5 & T6>;
 export function rollup<T1 extends object, T2 extends object, T3 extends object, T4 extends object,
-	T5 extends object, T6 extends object, T7 extends object>(streams: [
-	AsyncIterable<T1>,
-	AsyncIterable<T2>,
-	AsyncIterable<T3>,
-	AsyncIterable<T4>,
-	AsyncIterable<T5>,
-	AsyncIterable<T6>,
-	AsyncIterable<T7>], config?: SeqConfig): RollupStream<T1 & T2 & T3 & T4 & T5 & T6 & T7>;
+		T5 extends object, T6 extends object, T7 extends object>(streams: [
+		AsyncIterable<T1>,
+		AsyncIterable<T2>,
+		AsyncIterable<T3>,
+		AsyncIterable<T4>,
+		AsyncIterable<T5>,
+		AsyncIterable<T6>,
+		AsyncIterable<T7>], config?: SeqConfig): RollupStream<T1 & T2 & T3 & T4 & T5 & T6 & T7>;
 export function rollup<T extends object>(streams: AsyncIterable<T>[], config: SeqConfig = {}) {
 	return new RollupStream<T>(streams, config);
 }

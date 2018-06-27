@@ -1,4 +1,4 @@
-import {Distinct, merge, rollup, stream, valueStream, writeStream} from "../f10-stream/src";
+import {Distinct, merge, rollup, stream, valueStream, writeStream} from "../f10-stream";
 
 import {suite, test, timeout} from "mocha-typescript";
 import {default as assert, fail} from "assert";
@@ -286,10 +286,8 @@ export class WriteStreams {
 		await delay(async () => {
 			let actual = [];
 			for await (let value of values) {
-				console.log('zang', value);
 				values.done();
 			}
-			;
 			// assert.deepEqual(actual, someValues.slice(-replay));
 		});
 
@@ -710,10 +708,14 @@ export class RollupStreams {
 	@test
 	async simpleRollupAsync() {
 		const values1 = stream(async function* () {
-			for (const value of someValues) yield await delay(() => ({value1: value}));
+			for (const value of someValues) {
+				yield await delay(() => ({value1: value}));
+			}
 		});
 		const values2 = stream(async function* () {
-			for (const value of someValues) yield await delay(() => ({value2: value * 10}));
+			for (const value of someValues) {
+				yield await delay(() => ({value2: value * 10}));
+			}
 		});
 		const expected = [];
 		let expectedValue: { value1?: number, value2?: number } = {};

@@ -6,15 +6,14 @@ export interface OfferConfig extends SeqConfig {
 
 export abstract class OfferStream<T> extends SeqStream<T, DefferWrap<T>> {
 
+	protected last?: number;
+	protected offeredSeq?: number;
 	protected prevValue?: T;
+
 	private next: number = 0;
 
 	protected constructor(protected config: OfferConfig = {}) {
 		super(config);
-	}
-
-	public get value(): T | undefined {
-		return this.prevValue;
 	}
 
 	protected demand(): DefferWrap<T> {
@@ -29,7 +28,6 @@ export abstract class OfferStream<T> extends SeqStream<T, DefferWrap<T>> {
 		if (this.config.distinct) {
 			if (this.prevValue !== undefined && !result.done && result.value === this.prevValue) return;
 		}
-		this.prevValue = result.value;
 		if (this.last !== undefined) {
 			if (result.done) return;
 			else throw new Error("offer:done");
@@ -37,6 +35,7 @@ export abstract class OfferStream<T> extends SeqStream<T, DefferWrap<T>> {
 		const next = this.getSeq(this.next);
 		this.offeredSeq = this.next;
 		this.next += 1;
+		this.prevValue = result.value;
 		next.wrap.resolve!(result);
 	}
 }
