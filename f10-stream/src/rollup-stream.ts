@@ -3,8 +3,6 @@ import {OfferStream} from "./offer-stream";
 
 export class RollupStream<T extends object> extends OfferStream<T> {
 
-	protected last?: number;
-	protected offeredSeq?: number;
 	protected prevValue?: T;
 
 	private demanded = new Set<AsyncIterator<T>>();
@@ -87,6 +85,7 @@ export function rollup<T1 extends object, T2 extends object, T3 extends object, 
 		AsyncIterable<T5>,
 		AsyncIterable<T6>,
 		AsyncIterable<T7>], config?: SeqConfig): RollupStream<T1 & T2 & T3 & T4 & T5 & T6 & T7>;
+
 export function rollup<T extends object>(streams: AsyncIterable<T>[], config: SeqConfig = {}) {
 	return new RollupStream<T>(streams, config);
 }

@@ -1,3 +1,4 @@
+export * from './lib';
 export * from './stream';
 export * from './seq-stream';
 export * from './shared-stream';
@@ -6,3 +7,6 @@ export * from './iterable-stream';
 export * from './rollup-stream';
 export * from './executable-stream';
 export * from './merge-stream';
+export {DefferWrapImpl} from "./promise";
+export {DefferWrap} from "./promise";
+export {PromiseWrap} from "./promise";

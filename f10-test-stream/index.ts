@@ -1,4 +1,4 @@
-import {Distinct, merge, rollup, stream, valueStream, writeStream} from "../f10-stream";
+import {Distinct, merge, rollup, stream, valueStream, writeStream} from "../f10-stream/src";
 
 import {suite, test, timeout} from "mocha-typescript";
 import {default as assert, fail} from "assert";
@@ -13,6 +13,27 @@ function delay<T>(fn: Promise<T> | T | (() => T | Promise<T>)) {
 
 function wait(ms: number) {
 	return new Promise((resolve, reject) => setTimeout(resolve, ms));
+}
+
+import {rangeTo, rangeUntil, mapIterable} from '../f10-stream';
+
+@suite
+export class Libs {
+	@test
+	rangeTo() {
+		assert.deepEqual([0, 1, 2], [...rangeTo(0, 3)]);
+		assert.deepEqual([1, 2], [...rangeTo(1, 3)]);
+		assert.deepEqual([1], [...rangeTo(1, 2)]);
+		assert.deepEqual([], [...rangeTo(1, 1)]);
+	}
+
+	@test
+	rangeUntil() {
+		assert.deepEqual([0, 1, 2], [...rangeUntil(0, 2)]);
+		assert.deepEqual([1, 2], [...rangeUntil(1, 2)]);
+		assert.deepEqual([1], [...rangeUntil(1, 1)]);
+		assert.deepEqual([], [...rangeUntil(1, 0)]);
+	}
 }
 
 @suite
@@ -731,3 +752,52 @@ export class RollupStreams {
 		assert.deepEqual(actual, expected);
 	}
 }
+
+import {input} from '../f10-stream/src/input/pure-input-stream';
+import '../f10-stream/src/input/into-input-stream';
+
+@suite
+export class InputStreams {
+
+	@test
+	async simpleInput() {
+		const stream = input<number>().bind({});
+		await Promise.all([(async () => {
+			for (const value of someValues) {
+				await stream(value);
+			}
+			await stream.return!();
+		})(), (async () => {
+			let result: IteratorResult<number>;
+			const actual = [];
+			while (!(result = await stream.next()).done) {
+				actual.push(result.value);
+			}
+			assert.deepEqual(someValues, actual);
+		})()]);
+	}
+
+	@test
+	async intoInput() {
+		const stream = input<number>().into(async function* (input: AsyncIterable<number>) {
+			for await (const value of input) {
+				yield value * 10;
+			}
+		}).bind({});
+		await Promise.all([(async () => {
+			for (const value of someValues) {
+				await stream(value);
+			}
+			await stream.return!();
+		})(), (async () => {
+			let result: IteratorResult<number>;
+			const actual = [];
+			while (!(result = await stream.next()).done) {
+				actual.push(result.value);
+			}
+			const expected = someValues.map(value => value * 10);
+			assert.deepEqual(expected, actual);
+		})()]);
+	}
+}
+

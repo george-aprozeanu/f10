@@ -1,14 +1,11 @@
-import {DefferWrap, DefferWrapImpl, SeqConfig, SeqStream} from "./seq-stream";
+import {SeqConfig, SeqStream} from "./seq-stream";
+import {DefferWrap, DefferWrapImpl} from "./promise";
 
 export interface OfferConfig extends SeqConfig {
 	distinct?: boolean
 }
 
 export abstract class OfferStream<T> extends SeqStream<T, DefferWrap<T>> {
-
-	protected last?: number;
-	protected offeredSeq?: number;
-	protected prevValue?: T;
 
 	private next: number = 0;
 

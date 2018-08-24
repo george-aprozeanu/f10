@@ -1,29 +1,6 @@
 import {Stream} from "./stream";
-
-export type Resolve<Out> = (value?: Out | PromiseLike<Out>) => void;
-export type Reject = (reason?: any) => void;
-
-export interface PromiseWrap<T> {
-	promise: Promise<IteratorResult<T>>;
-}
-
-export interface DefferWrap<T> extends PromiseWrap<T> {
-	resolve?: Resolve<IteratorResult<T>>;
-	reject?: Reject;
-}
-
-export class DefferWrapImpl<T> implements DefferWrap<T> {
-	promise: Promise<IteratorResult<T>> = undefined as any;
-	resolve: Resolve<IteratorResult<T>> = undefined as any;
-	reject: Reject = undefined as any;
-
-	constructor() {
-		this.promise = new Promise<IteratorResult<T>>((resolve, reject) => {
-			this.resolve = resolve;
-			this.reject = reject;
-		})
-	}
-}
+import {mapIterable, rangeUntil} from "./lib";
+import {PromiseWrap} from "./promise";
 
 export class Seq<Out, W extends PromiseWrap<Out>> {
 	constructor(readonly wrap: W, readonly next: number, public ttl: number) {
@@ -55,7 +32,7 @@ export const Value = {replay: 1};
 export abstract class SeqStream<T, W extends PromiseWrap<T>> extends Stream<T> {
 
 	protected last?: number;
-	protected offeredSeq?: number;
+	protected offeredSeq = 0;
 	protected prevValue?: T;
 
 	private first = 0;
@@ -84,14 +61,20 @@ export abstract class SeqStream<T, W extends PromiseWrap<T>> extends Stream<T> {
 
 	protected getSeq(seq: number) {
 		let index = this.correctSeq(seq) - this.first;
-		if (index >= this.buffer.length) for (let i = this.buffer.length; i <= index; i++)
-			this.buffer[i] = this.nextSeq(this.first + i);
-		else this.buffer[index].ttl = Date.now() + (this.config.ttl !== undefined ? this.config.ttl : DefaultTTL);
+		if (index >= this.buffer.length) {
+			this.buffer.push(...mapIterable(rangeUntil(this.buffer.length, index), i => this.nextSeq(this.first + i)));
+		} else {
+			this.buffer[index].ttl = this.newTTL();
+		}
 		return this.buffer[index];
 	}
 
+	private newTTL() {
+		return Date.now() + (this.config.ttl !== undefined ? this.config.ttl : DefaultTTL);
+	}
+
 	private firstReadableSeq() {
-		return Math.max((this.offeredSeq || 0) - (this.config.replay || 0) + 1, 0);
+		return Math.max(this.offeredSeq - (this.config.replay || 0) + 1, 0);
 	}
 
 	private trimTTL() {
@@ -112,18 +95,17 @@ export abstract class SeqStream<T, W extends PromiseWrap<T>> extends Stream<T> {
 
 	private nextSeq(seq: number) {
 		const demand = this.demand();
-		demand.promise = demand.promise.then(result => {
+		demand.promise.then(result => {
 			if (result.done) {
 				this.last = seq;
-				this.offeredSeq = Math.max(seq - 1, (this.offeredSeq || 0) - 1, 0);
+				this.offeredSeq = Math.max(seq, this.offeredSeq, 1) - 1;
 			} else {
 				this.prevValue = result.value;
-				this.offeredSeq = Math.max(seq, this.offeredSeq || 0);
+				this.offeredSeq = Math.max(seq, this.offeredSeq);
 			}
 			this.trimTTL();
 			return result;
 		});
-		const ttl = this.config.ttl !== undefined ? this.config.ttl : DefaultTTL;
-		return new Seq(demand, seq + 1, Date.now() + ttl);
+		return new Seq(demand, seq + 1, this.newTTL());
 	}
 }

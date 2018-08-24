@@ -3,10 +3,6 @@ import {OfferStream} from "./offer-stream";
 
 export class MergeStream<T> extends OfferStream<T> {
 
-	protected last?: number;
-	protected offeredSeq?: number;
-	protected prevValue?: T;
-
 	private demanded = new Set<AsyncIterator<T>>();
 	private free = new Set<AsyncIterator<T>>();
 	private nextFree: Promise<AsyncIterator<T>>;
