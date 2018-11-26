@@ -1,29 +1,24 @@
-import { Stream } from "./stream";
-import { FnErr, FnValue, Dest } from "./dest";
+import { FnErr, FnValue, Stream } from "./stream";
+import { WritableStream } from './writable';
 
-export class MapStream<T, U> extends Stream<U> {
-
-    private dest = new Dest<U>();
+export class MapStream<T, U> extends WritableStream<U> {
 
     constructor(private stream: Stream<T>, private fn: (value: T) => U) {
         super();
     }
 
-    private next = (result: IteratorResult<T>) => {
+    private upstream_next = (result: IteratorResult<T>) => {
         const { done, value } = result;
         try {
-            this.dest.next(done ? result as any : { value: this.fn(value), done });
+            this.next(done ? result as any : { value: this.fn(value), done });
         } catch (err) {
-            this.dest.throw(err);
+            this.throw(err);
         }
     }
 
-    private err = (err?: any) => {
-        this.dest.throw(err);
-    }
-
     out(next?: FnValue<U> | undefined, err?: FnErr) {
-        this.dest.fill(next, err);
+        super.out(next, err);
+        this.stream.out(this.upstream_next, this.throw);
     }
 }
 

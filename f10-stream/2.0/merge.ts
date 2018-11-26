@@ -1,37 +1,33 @@
-import { Stream } from "./stream";
-import { FnErr, FnValue, Dest } from "./dest";
+import { Stream, FnErr, FnValue } from "./stream";
+import { WritableStream } from './writable';
 
-export class MergeStream<A, B> extends Stream<A | B> {
+export class MergeStream<A, B> extends WritableStream<A | B> {
 
-    private dest = new Dest<A | B>();
-
-    constructor(private a: Stream<A>, private b: Stream<B>) {
+    constructor(private streams: [Stream<A>, Stream<B>]) {
         super();
     }
 
-    private next = (result: IteratorResult<A | B>) => {
-        this.dest.next(result);
+    private upstream_next = (result: IteratorResult<A | B>) => {
+        this.next(result);
         this.reset();
     }
 
-    private err = (err?: any) => {
-        this.dest.throw(err);
+    private upstream_err = (err?: any) => {
+        this.throw(err);
         this.reset();
     }
 
     private reset() {
-        this.a.out();
-        this.b.out();
+        (this.streams as Stream<any>[]).forEach(stream => stream.out());
     }
 
     private run() {
-        this.a.out(this.next, this.err);
-        this.b.out(this.next, this.err);
+        (this.streams as Stream<any>[]).forEach(stream => stream.out(this.upstream_next, this.upstream_err));
     }
 
-    out(next?: FnValue<T>, err?: FnErr): void {
-        this.dest.fill(next, err);
-        if (this.dest.canSend) {
+    out(next?: FnValue<A | B>, err?: FnErr): void {
+        super.out(next, err);
+        if (this.fnValue) {
             this.run();
         } else {
             this.reset();
@@ -46,5 +42,5 @@ declare module './stream' {
 }
 
 Stream.prototype.merge = function <SA extends Stream<A>, A, SB extends Stream<B>, B>(this: SA, stream: SB) {
-    return new MergeStream(this, stream);
+    return new MergeStream([this, stream]);
 }

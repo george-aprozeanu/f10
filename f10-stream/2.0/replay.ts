@@ -1,36 +1,56 @@
-import { FnValue, FnErr, Dest } from './dest';
-import { Stream } from './stream';
-import { Result } from './result';
+import { Stream, FnValue, FnErr } from './stream';
+import { WritableStream } from './writable';
 
-export class ReplayStream<T> extends Stream<T> {
+export class ReplayStream<T> extends WritableStream<T> {
 
-    private result = new Result<T>();
-    private dest = new Dest<T>();
+    private result?: IteratorResult<T>;
+    private thrown = false;
+    private err?: any;
 
     constructor(private upstream: Stream<T>) {
         super();
         this.loop();
     }
 
-    out(next?: FnValue<T>, err?: FnErr) {
-        this.dest.fill(next, err);
-        if (this.result.canSend && this.dest.canSend) this.result.send(this.dest);
+    out(fnValue?: FnValue<T>, fnErr?: FnErr) {
+        super.out(fnValue, fnErr);
+        this.send();
     }
 
-    private next = (result: IteratorResult<T>) => {
-        this.result.set(result);
-        if (this.dest.canSend) this.result.send(this.dest);
+    private send() {
+        if (this.result) {
+            const result = this.result;
+            delete this.result;
+            this.next(result);
+        } else if (this.thrown) {
+            const err = this.err;
+            delete this.err;
+            this.thrown = false;
+            this.throw(err);
+        }
+    }
+
+    private upstream_next = (result: IteratorResult<T>) => {
+        if (this.fnValue) {
+            this.next(result);
+        } else {
+            this.result = result;
+        }
         this.loop();
     }
 
-    private throw = (err?: any) => {
-        this.result.setErr(err);
-        if (this.dest.canSend) this.result.send(this.dest);
+    private upstream_throw = (err?: any) => {
+        if (!this.fnValue) {
+            this.err = err;
+            this.thrown = true;
+        } else {
+            this.throw(err);
+        }
         this.loop();
     }
 
     private loop() {
-        this.upstream.out(this.next, this.throw);
+        this.upstream.out(this.upstream_next, this.upstream_throw);
     }
 }
 
