@@ -14,7 +14,7 @@ export function deffer<T = void>(): Deffer<T> {
 		resolve = _resolve;
 		reject = _reject;
 	});
-	return {promise, resolve: resolve!, reject: reject!, then: promise.then.bind(promise)};
+	return {promise, resolve: resolve!, reject: reject!, then: promise.then.bind(promise) as any};
 }
 
 

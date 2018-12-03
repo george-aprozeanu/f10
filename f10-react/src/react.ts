@@ -7,9 +7,9 @@ export interface LifecycleAttachment {
 }
 
 function lifecycleAttach(componentPrototype: Component<any, any>, attachment: LifecycleAttachment) {
-	const mount = componentPrototype.componentWillMount;
+	const mount = componentPrototype.componentDidMount;
 	const unmount = componentPrototype.componentWillUnmount;
-	componentPrototype.componentWillMount = function () {
+	componentPrototype.componentDidMount = function () {
 		if (mount) mount.apply(this);
 		attachment.mount(this);
 	};
@@ -62,6 +62,6 @@ export const mutation = <M, S extends M>(target: Component<any, S>, key?: string
 		const iterable = (target as any)[key];
 		if (typeof iterable === 'function') {
 			stateMutation(target, iterable);
-		} else console.error(`@mutation of ${target.constructor.name}:${key} is not a Function`);
-	} else console.error(`@mutation of ${target.constructor.name}:${key} was not installed`);
+		} else console.error(`@mutation of ${target.constructor.name}:${String(key)} is not a Function`);
+	} else console.error(`@mutation of ${target.constructor.name}:${String(key)} was not installed`);
 };
