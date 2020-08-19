@@ -7,6 +7,6 @@
     "build": "node-sass index.scss -o dist"
   },
   "devDependencies": {
-    "node-sass": "^4.8.3"
+    "node-sass": "^4.14.1"
   }
 }
